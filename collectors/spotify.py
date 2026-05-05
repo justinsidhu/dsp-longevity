@@ -1,37 +1,44 @@
 """
-Spotify collector — pulls live editorial playlist tracks and artist popularity.
-Uses hardcoded verified playlist IDs with search fallback.
-To update IDs: open playlist in Spotify, share -> copy link, ID is after /playlist/
+Spotify collector v2 — artist-centric approach.
+- Pulls top artists from Billboard Hot 100 (already collected)
+- Tracks artist popularity daily with velocity scoring
+- Detects new releases by tracked artists
+- Classifies labels using label_classifications.json
+- Fuzzy matches artist names across sources
 """
 
-import time, requests
-from datetime import date
+import os, json, time, requests, re
+from datetime import date, timedelta
+from pathlib import Path
 from base64 import b64encode
+from difflib import SequenceMatcher
 
-# Verified official Spotify playlist IDs — update if a 404 occurs
-# Format: open.spotify.com/playlist/<ID>
-PLAYLISTS = {
-    "today_top_hits":   "37i9dQZF1DXcBWIGoYBM5M",
-    "rap_caviar":       "37i9dQZF1DX0XUsuxWHRQd",
-    "hot_hits_usa":     "37i9dQZF1DX0kbJZpiYdZl",
-    "new_music_friday": "37i9dQZF1DX4JAvHpjipBk",
-    "viral_50_usa":   "37i9dQZEVXbKuaTI1Z1Afx",
-    "fresh_finds":    "37i9dQZF1DWWjGdmeTyeJ6",
-    "pop_rising":       "37i9dQZF1DWUa8ZRTfalHk",
-    "most_necessary":   "37i9dQZF1DX2RxBh64BHjQ",
-}
+ROOT = Path(__file__).parent.parent
+LABEL_DB = ROOT / "data" / "label_classifications.json"
+RAW = ROOT / "data" / "raw"
 
-# Search fallback terms if a hardcoded ID 404s
-PLAYLIST_SEARCHES = {
-    "today_top_hits":   "Today's Top Hits",
-    "rap_caviar":       "RapCaviar",
-    "hot_hits_usa":     "Hot Hits USA",
-    "new_music_friday": "New Music Friday",
-    "viral_50_usa":     "Viral 50 USA",
-    "fresh_finds":      "Fresh Finds",
-    "pop_rising":       "Pop Rising",
-    "most_necessary":   "Most Necessary",
-}
+MAJOR_KEYWORDS = [
+    "republic", "interscope", "def jam", "motown", "island", "capitol",
+    "geffen", "virgin", "mercury", "polydor", "universal", "umg",
+    "columbia", "rca", "epic", "arista", "sony", "legacy",
+    "atlantic", "warner", "elektra", "parlophone", "reprise",
+]
+
+SELF_RELEASED_KEYWORDS = [
+    "distrokid", "tunecore", "cd baby", "amuse", "unitedmasters",
+    "gamma", "vydia", "awal", "believe", "empire"
+]
+
+FALLBACK_ARTISTS = [
+    "Olivia Rodrigo", "Ella Langley", "Bruno Mars", "Taylor Swift",
+    "Justin Bieber", "Morgan Wallen", "Noah Kahan", "Luke Combs",
+    "Sabrina Carpenter", "Drake", "Kendrick Lamar", "Bad Bunny",
+    "The Weeknd", "SZA", "Post Malone", "Travis Scott",
+    "Don Toliver", "Kehlani", "BTS", "Zach Bryan",
+    "Billie Eilish", "Doja Cat", "Tyler the Creator", "Lil Baby",
+    "Tyla", "PinkPantheress", "Dominic Fike", "Alex Warren",
+    "KATSEYE", "Tame Impala", "Steve Lacy", "Peso Pluma",
+]
 
 
 def get_token(client_id, client_secret):
@@ -45,6 +52,111 @@ def get_token(client_id, client_secret):
     return r.json()["access_token"]
 
 
+def normalize_name(name):
+    name = name.lower().strip()
+    name = re.sub(r'\s*(feat\.?|ft\.?|featuring|with)\s+.*$', '', name)
+    name = re.sub(r'[^\w\s]', ' ', name)
+    name = re.sub(r'\s+', ' ', name).strip()
+    replacements = [
+        ('the weeknd', 'weeknd'), ('tyler the creator', 'tyler creator'),
+        (r'\bj cole\b', 'j. cole'), ('lil uzi vert', 'lil uzi'),
+    ]
+    for pattern, repl in replacements:
+        name = re.sub(pattern, repl, name)
+    return name.strip()
+
+
+def fuzzy_score(a, b):
+    na, nb = normalize_name(a), normalize_name(b)
+    if na == nb:
+        return 1.0
+    if na in nb or nb in na:
+        return min(len(na), len(nb)) / max(len(na), len(nb), 1)
+    tokens_a, tokens_b = set(na.split()), set(nb.split())
+    if tokens_a and tokens_b:
+        jaccard = len(tokens_a & tokens_b) / len(tokens_a | tokens_b)
+    else:
+        jaccard = 0.0
+    char_ratio = SequenceMatcher(None, na, nb).ratio()
+    return max(jaccard, char_ratio * 0.85)
+
+
+def find_best_match(query, candidates, threshold=0.75):
+    best, best_score = None, 0.0
+    for c in candidates:
+        s = fuzzy_score(query, c)
+        if s > best_score:
+            best_score, best = s, c
+    return (best, best_score) if best_score >= threshold else (None, 0.0)
+
+
+def load_label_db():
+    if LABEL_DB.exists():
+        return json.loads(LABEL_DB.read_text())
+    return {}
+
+
+def classify_label(label_name, artist_name, label_db):
+    overrides = label_db.get("artist_overrides", {})
+    matched, score = find_best_match(artist_name, list(overrides.keys()), 0.8)
+    if matched:
+        o = overrides[matched]
+        return {"tier": o["tier"], "label_canonical": o["label"],
+                "distributor": o.get("distributor"), "master_ownership": o.get("master_ownership"),
+                "match_source": "artist_override", "match_score": score, "notes": o.get("notes")}
+
+    labels = label_db.get("labels", {})
+    matched_l, lscore = find_best_match(label_name or "", list(labels.keys()), 0.75)
+    if matched_l:
+        d = labels[matched_l]
+        return {"tier": d["tier"], "label_canonical": matched_l,
+                "distributor": d.get("distributor"), "master_ownership": d.get("master_ownership"),
+                "match_source": "label_db", "match_score": lscore, "notes": d.get("notes")}
+
+    ll = (label_name or "").lower()
+    for group, kws in label_db.get("major_groups", {}).items():
+        for kw in kws:
+            if kw.lower() in ll:
+                return {"tier": "major", "label_canonical": label_name, "distributor": group,
+                        "master_ownership": "label", "match_source": "keyword_major", "match_score": 0.7}
+
+    for kw in SELF_RELEASED_KEYWORDS:
+        if kw in ll:
+            return {"tier": "self_released", "label_canonical": label_name, "distributor": label_name,
+                    "master_ownership": "artist", "match_source": "keyword_self_released", "match_score": 0.7}
+
+    return {"tier": "unknown", "label_canonical": label_name, "distributor": None,
+            "master_ownership": "unknown", "match_source": "unmatched", "match_score": 0.0}
+
+
+def compute_velocity(artist_id, current_pop):
+    artist_file = RAW / "spotify_artists.jsonl"
+    if not artist_file.exists():
+        return {"velocity_score": 0, "velocity_tier": "new", "prev_popularity": None}
+
+    seven_ago = (date.today() - timedelta(days=7)).isoformat()
+    prev_records = []
+    with open(artist_file) as f:
+        for line in f:
+            try:
+                r = json.loads(line)
+                if r.get("artist_id") == artist_id and r.get("snapshot_date") <= seven_ago:
+                    prev_records.append(r)
+            except Exception:
+                continue
+
+    if not prev_records:
+        return {"velocity_score": 0, "velocity_tier": "new", "prev_popularity": None}
+
+    prev = max(prev_records, key=lambda x: x["snapshot_date"])
+    prev_pop = prev.get("popularity", current_pop)
+    delta = current_pop - prev_pop
+
+    tier = ("breakout" if delta >= 10 else "rising" if delta >= 5 else
+            "stable" if delta >= -2 else "fading" if delta >= -8 else "declining")
+    return {"velocity_score": delta, "velocity_tier": tier, "prev_popularity": prev_pop}
+
+
 class SpotifyCollector:
     BASE = "https://api.spotify.com/v1"
 
@@ -53,6 +165,7 @@ class SpotifyCollector:
         self.client_secret = client_secret
         self.token = get_token(client_id, client_secret)
         self._ts = time.time()
+        self.label_db = load_label_db()
 
     def _h(self):
         if time.time() - self._ts > 3300:
@@ -65,143 +178,111 @@ class SpotifyCollector:
         r.raise_for_status()
         return r.json()
 
-    def search_playlist(self, name, query):
-        """Search fallback — only used if hardcoded ID 404s."""
+    def search_artist(self, name):
         try:
-            data = self.get("/search", {"q": query, "type": "playlist", "limit": 20, "market": "US"})
-            items = [p for p in data.get("playlists", {}).get("items", []) if p]
-            # Strictly filter to spotify-owned only
-            for pl in items:
-                if pl.get("owner", {}).get("id") == "spotify":
-                    print(f"    Search fallback resolved '{name}' -> {pl['name']} ({pl['id']})")
-                    return pl["id"]
-            print(f"    Search fallback found no official Spotify playlist for: {query}")
-            return None
+            data = self.get("/search", {"q": name, "type": "artist", "limit": 5, "market": "US"})
+            artists = [a for a in data.get("artists", {}).get("items", []) if a]
+            if not artists:
+                return None
+            best, best_score = None, 0.0
+            for a in artists:
+                s = fuzzy_score(name, a["name"])
+                if s > best_score:
+                    best_score, best = s, a
+            return best if best_score >= 0.75 else None
         except Exception as e:
-            print(f"    Search fallback error for '{name}': {e}")
+            print(f"    Search error for '{name}': {e}")
             return None
 
-    def verify_or_search(self, name, playlist_id):
-        """Try hardcoded ID first, fall back to search if 404."""
+    def get_new_releases(self, artist_id, artist_name):
         try:
-            r = requests.get(
-                f"{self.BASE}/playlists/{playlist_id}",
-                headers=self._h(),
-                params={"fields": "id,name,owner"},
-            )
-            if r.status_code == 200:
-                data = r.json()
-                print(f"    Verified '{name}' -> {data['name']} ({playlist_id})")
-                return playlist_id
-            elif r.status_code == 404:
-                print(f"    ID stale for '{name}', searching...")
-                return self.search_playlist(name, PLAYLIST_SEARCHES[name])
-            else:
-                r.raise_for_status()
+            data = self.get(f"/artists/{artist_id}/albums",
+                            {"include_groups": "album,single", "limit": 5, "market": "US"})
+            cutoff = (date.today() - timedelta(days=30)).isoformat()
+            new = []
+            for album in data.get("items", []):
+                if album.get("release_date", "") >= cutoff:
+                    try:
+                        full = self.get(f"/albums/{album['id']}")
+                        label_name = full.get("label", "")
+                        label_info = classify_label(label_name, artist_name, self.label_db)
+                    except Exception:
+                        label_name, label_info = "", {"tier": "unknown"}
+                    new.append({
+                        "album_id": album["id"], "album_name": album["name"],
+                        "album_type": album["album_type"], "release_date": album.get("release_date"),
+                        "label_raw": label_name, "label_tier": label_info.get("tier"),
+                        "label_canonical": label_info.get("label_canonical"),
+                        "master_ownership": label_info.get("master_ownership"),
+                    })
+            return new
         except Exception as e:
-            print(f"    Error verifying '{name}': {e}")
-            return None
-
-    def playlist_tracks(self, playlist_id):
-        tracks, url = [], f"{self.BASE}/playlists/{playlist_id}/tracks"
-        params = {"limit": 100, "fields": "items(track(id,name,popularity,artists,album)),next"}
-        while url:
-            r = requests.get(url, headers=self._h(), params=params)
-            r.raise_for_status()
-            data = r.json()
-            for item in data.get("items", []):
-                t = item.get("track")
-                if t and t.get("id"):
-                    tracks.append(t)
-            url = data.get("next")
-            params = None
-            time.sleep(0.2)
-        return tracks
-
-    def artist_snapshot(self, artist_id):
-        ar = self.get(f"/artists/{artist_id}")
-        return {
-            "artist_id": artist_id,
-            "artist_name": ar["name"],
-            "popularity": ar["popularity"],
-            "followers": ar["followers"]["total"],
-            "genres": ar["genres"],
-        }
+            print(f"    Releases error for {artist_name}: {e}")
+            return []
 
     def collect_playlists(self):
         today = date.today().isoformat()
 
-        print("  Verifying playlist IDs...")
-        resolved = {}
-        for name, pid in PLAYLISTS.items():
-            verified = self.verify_or_search(name, pid)
-            if verified:
-                resolved[name] = verified
-            time.sleep(0.2)
-        print(f"  Resolved {len(resolved)}/{len(PLAYLISTS)} playlists\n")
+        # Get artist names from Billboard data
+        billboard_file = RAW / "billboard.jsonl"
+        artist_names = set()
+        if billboard_file.exists():
+            with open(billboard_file) as f:
+                for line in f:
+                    try:
+                        r = json.loads(line)
+                        artist = r.get("artist", "")
+                        if artist:
+                            primary = re.split(r'\s+feat\.?\s+|\s+ft\.?\s+|\s+&\s+', artist, flags=re.IGNORECASE)[0].strip()
+                            artist_names.add(primary)
+                    except Exception:
+                        continue
 
-        if not resolved:
-            print("  ERROR: Could not resolve any playlists")
-            return [], [], []
+        if not artist_names:
+            artist_names = set(FALLBACK_ARTISTS)
 
-        track_records, artist_ids_seen = [], set()
-        playlist_track_sets = {}
+        print(f"  Spotify: tracking {len(artist_names)} artists from Billboard")
 
-        for playlist_name, playlist_id in resolved.items():
-            print(f"  Pulling playlist: {playlist_name}")
+        artist_records, release_records, seen_ids = [], [], set()
+
+        for name in sorted(artist_names):
             try:
-                tracks = self.playlist_tracks(playlist_id)
-                track_ids = set()
-                for t in tracks:
-                    tid = t["id"]
-                    track_ids.add(tid)
-                    artist_id = t["artists"][0]["id"] if t.get("artists") else None
-                    record = {
-                        "snapshot_date": today,
-                        "playlist_name": playlist_name,
-                        "playlist_id": playlist_id,
-                        "track_id": tid,
-                        "track_name": t["name"],
-                        "track_popularity": t.get("popularity"),
-                        "artist_id": artist_id,
-                        "artist_name": t["artists"][0]["name"] if t.get("artists") else None,
-                        "album_name": t.get("album", {}).get("name"),
-                        "album_release_date": t.get("album", {}).get("release_date"),
-                    }
-                    track_records.append(record)
-                    if artist_id:
-                        artist_ids_seen.add(artist_id)
-                playlist_track_sets[playlist_name] = track_ids
-                time.sleep(0.5)
+                artist = self.search_artist(name)
+                if not artist or artist["id"] in seen_ids:
+                    continue
+                seen_ids.add(artist["id"])
+
+                pop = artist.get("popularity", 0)
+                label_info = classify_label("", name, self.label_db)
+                velocity = compute_velocity(artist["id"], pop)
+
+                artist_records.append({
+                    "snapshot_date": today,
+                    "artist_id": artist["id"],
+                    "artist_name": artist["name"],
+                    "query_name": name,
+                    "match_score": round(fuzzy_score(name, artist["name"]), 3),
+                    "popularity": pop,
+                    "followers": artist.get("followers", {}).get("total", 0),
+                    "genres": artist.get("genres", []),
+                    "label_tier": label_info.get("tier"),
+                    "label_canonical": label_info.get("label_canonical"),
+                    "master_ownership": label_info.get("master_ownership"),
+                    "label_match_source": label_info.get("match_source"),
+                    **velocity,
+                })
+
+                releases = self.get_new_releases(artist["id"], name)
+                for rel in releases:
+                    release_records.append({"snapshot_date": today, "artist_id": artist["id"],
+                                            "artist_name": artist["name"], **rel})
+                    print(f"    NEW: {artist['name']} — {rel['album_name']} ({rel['release_date']})")
+
+                time.sleep(0.4)
+
             except Exception as e:
-                print(f"    ERROR on {playlist_name}: {e}")
+                print(f"    Error: {name}: {e}")
 
-        # Echo chamber index
-        echo_records = []
-        playlist_names = list(playlist_track_sets.keys())
-        for i, p1 in enumerate(playlist_names):
-            for p2 in playlist_names[i+1:]:
-                s1, s2 = playlist_track_sets[p1], playlist_track_sets[p2]
-                if s1 and s2:
-                    overlap = len(s1 & s2) / len(s1 | s2)
-                    echo_records.append({
-                        "snapshot_date": today,
-                        "playlist_a": p1,
-                        "playlist_b": p2,
-                        "overlap_score": round(overlap, 4),
-                        "shared_tracks": len(s1 & s2),
-                        "total_unique": len(s1 | s2),
-                    })
-
-        # Artist snapshots
-        artist_records = []
-        for artist_id in list(artist_ids_seen)[:40]:
-            try:
-                snap = self.artist_snapshot(artist_id)
-                snap["snapshot_date"] = today
-                artist_records.append(snap)
-                time.sleep(0.3)
-            except Exception as e:
-                print(f"    Artist error {artist_id}: {e}")
-
-        return track_records, echo_records, artist_records
+        artist_records.sort(key=lambda x: abs(x.get("velocity_score", 0)), reverse=True)
+        print(f"  Spotify: {len(artist_records)} artists, {len(release_records)} new releases")
+        return artist_records, [], release_records

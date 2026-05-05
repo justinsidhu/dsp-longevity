@@ -19,7 +19,7 @@ from collectors.spotify import SpotifyCollector
 from collectors.billboard import collect_billboard
 from collectors.wikipedia import collect_wikipedia
 from collectors.trends import collect_trends
-from collectors.youtube import collect_youtube_stats, collect_heatmaps
+from collectors.youtube import collect_youtube_stats, collect_heatmaps, discover_topic_channels
 from collectors.shazam import collect_shazam
 from collectors.kalshi import collect_kalshi
 from collectors.polymarket import collect_polymarket
@@ -134,17 +134,17 @@ def main():
     client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
     if client_id and client_secret:
-        print("Spotify: collecting playlists...")
+        print("Spotify: tracking Billboard artists...")
         sp = SpotifyCollector(client_id, client_secret)
-        track_records, echo_records, artist_records = sp.collect_playlists()
+        artist_records, echo_records, release_records = sp.collect_playlists()
 
-        append_jsonl(RAW / "spotify_tracks.jsonl", track_records)
+        append_jsonl(RAW / "spotify_new_releases.jsonl", release_records)
         append_jsonl(RAW / "echo_chamber.jsonl", echo_records)
         append_jsonl(RAW / "spotify_artists.jsonl", artist_records)
 
-        stats["spotify_tracks"] = len(track_records)
+        stats["spotify_releases"] = len(release_records)
         stats["spotify_artists"] = len(artist_records)
-        print(f"  Spotify: {len(track_records)} track records, {len(echo_records)} echo pairs\n")
+        print(f"  Spotify: {len(artist_records)} artists tracked, {len(release_records)} new releases\n")
     else:
         print("Spotify: no credentials, skipping\n")
 
@@ -198,6 +198,9 @@ def main():
     yt_stats = collect_youtube_stats(yt_api_key)
     append_jsonl(RAW / "youtube_stats.jsonl", yt_stats)
     stats["youtube_stats"] = len(yt_stats)
+
+    print("YouTube: discovering topic channels (Mondays only)...")
+    discover_topic_channels(yt_api_key)
 
     print("YouTube: collecting heatmaps (Mondays only)...")
     yt_heatmaps = collect_heatmaps()

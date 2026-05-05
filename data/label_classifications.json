@@ -1,0 +1,471 @@
+{
+  "_meta": {
+    "description": "Label classification database for DSP longevity research. Five tiers: major, major_indie, services, indie, self_released. Master ownership tracked separately from distribution tier.",
+    "tiers": {
+      "major": "Owned/operated by UMG, Sony, or Warner Music Group",
+      "major_indie": "Artist-owned label with major distribution deal — nominal independence, major economics",
+      "services": "Management/services company with distribution function — not a traditional label",
+      "indie": "Independent label with independent distribution",
+      "self_released": "No label, distributed via aggregator (DistroKid, TuneCore, Gamma., etc.)"
+    },
+    "last_updated": "2026-05-05"
+  },
+
+  "major_groups": {
+    "UMG": ["Republic Records", "Interscope Records", "Def Jam Recordings", "Motown Records", "Island Records", "Capitol Records", "Geffen Records", "Virgin Records", "Mercury Records", "Polydor Records", "Deutsche Grammophon", "Verve Records", "Blue Note Records", "Decca Records", "Harvest Records", "Loma Vista Recordings", "Caroline Records", "Def Jam", "Republic", "Interscope", "Capitol", "Island", "Motown", "Geffen", "Universal Music"],
+    "SONY": ["Columbia Records", "RCA Records", "Epic Records", "Arista Records", "Legacy Recordings", "Provident Music Group", "Columbia", "RCA", "Epic", "Arista", "Sony Music"],
+    "WARNER": ["Atlantic Records", "Warner Records", "Elektra Records", "Nonesuch Records", "Reprise Records", "Parlophone", "Rhino Entertainment", "Atlantic", "Warner", "Elektra", "Parlophone", "Warner Music"]
+  },
+
+  "labels": {
+    "OVO Sound": {
+      "tier": "major_indie",
+      "owner": "Drake",
+      "parent_group": "Warner Music Group",
+      "distributor": "Warner Music Group",
+      "master_ownership": "artist",
+      "founded": 2012,
+      "notes": "Drake's imprint — Warner distribution, artist retains masters",
+      "artists": ["Drake", "PartyNextDoor", "dvsn", "Roy Woods", "Majid Jordan"]
+    },
+    "pgLang": {
+      "tier": "major_indie",
+      "owner": "Kendrick Lamar",
+      "parent_group": "UMG",
+      "distributor": "UMG",
+      "master_ownership": "artist",
+      "founded": 2020,
+      "notes": "Services/creative company model — not a traditional label. Co-founded with Dave Free.",
+      "artists": ["Kendrick Lamar", "Baby Keem", "Tanna Leone"]
+    },
+    "Dreamville Records": {
+      "tier": "major_indie",
+      "owner": "J. Cole",
+      "parent_group": "UMG",
+      "distributor": "Interscope Records",
+      "master_ownership": "split",
+      "founded": 2007,
+      "notes": "Co-owned with Interscope. Cole retains creative control, masters split.",
+      "artists": ["J. Cole", "Bas", "JID", "Earthgang", "Cozz", "Omen", "Lute", "Ari Lennox"]
+    },
+    "GOOD Music": {
+      "tier": "major_indie",
+      "owner": "Kanye West",
+      "parent_group": "UMG",
+      "distributor": "Def Jam / UMG",
+      "master_ownership": "split",
+      "founded": 2004,
+      "notes": "Ye's imprint — historically Def Jam distributed. Relationship status with UMG volatile post-2022.",
+      "artists": ["Kanye West", "Pusha T", "Big Sean", "Teyana Taylor", "Consequence"]
+    },
+    "XO Records": {
+      "tier": "major_indie",
+      "owner": "The Weeknd",
+      "parent_group": "UMG",
+      "distributor": "Republic Records",
+      "master_ownership": "artist",
+      "founded": 2012,
+      "notes": "The Weeknd's own label through Republic/UMG",
+      "artists": ["The Weeknd", "Belly", "Nav", "Black Atlass"]
+    },
+    "Rimas Entertainment": {
+      "tier": "indie",
+      "owner": "Noah Assad",
+      "parent_group": null,
+      "distributor": "Independent",
+      "master_ownership": "label",
+      "founded": 2009,
+      "notes": "True independent Latin label. Bad Bunny's label — one of the most successful indie operations in music.",
+      "artists": ["Bad Bunny", "Jhay Cortez", "Mora"]
+    },
+    "Gingerbread Man Records": {
+      "tier": "major_indie",
+      "owner": "Ed Sheeran",
+      "parent_group": "Warner Music Group",
+      "distributor": "Atlantic Records",
+      "master_ownership": "artist",
+      "founded": 2015,
+      "notes": "Sheeran's own label — Atlantic distribution, he owns masters",
+      "artists": ["Ed Sheeran", "Passenger"]
+    },
+    "Roc Nation": {
+      "tier": "services",
+      "owner": "Jay-Z",
+      "parent_group": null,
+      "distributor": "varies by artist",
+      "master_ownership": "artist",
+      "founded": 2008,
+      "notes": "Management, touring, sports agency, and music services. Not a traditional label — acts as services company. Distribution varies per artist deal.",
+      "artists": ["Jay-Z", "Rihanna", "J. Cole (mgmt)", "Big Sean (historically)", "Meek Mill", "Lil Uzi Vert (historically)"]
+    },
+    "Gamma.": {
+      "tier": "self_released",
+      "owner": "Larry Jackson",
+      "parent_group": null,
+      "distributor": "self",
+      "master_ownership": "artist",
+      "founded": 2023,
+      "notes": "Artist-friendly distribution company competing with DistroKid at scale. Artists keep ~85-100% of revenue. Formerly Apple Music executive Larry Jackson.",
+      "artists": ["varies — distribution service not exclusive label"]
+    },
+    "Vydia": {
+      "tier": "self_released",
+      "owner": "Roy LaManna",
+      "parent_group": "Gamma.",
+      "distributor": "self",
+      "master_ownership": "artist",
+      "founded": 2014,
+      "notes": "Acquired by Gamma. — video and music distribution for independent artists",
+      "artists": ["varies — distribution service"]
+    },
+    "Top Dawg Entertainment": {
+      "tier": "major_indie",
+      "owner": "Anthony Tiffith",
+      "parent_group": "UMG",
+      "distributor": "Interscope / UMG",
+      "master_ownership": "label",
+      "founded": 2004,
+      "notes": "TDE — Kendrick pre-pgLang, SZA, ScHoolboy Q. Artists own publishing but TDE holds masters in most deals.",
+      "artists": ["SZA", "ScHoolboy Q", "Isaiah Rashad", "Ab-Soul", "Jay Rock", "Lance Skiiiwalker"]
+    },
+    "SALXCO": {
+      "tier": "services",
+      "owner": "Steve Lacy",
+      "parent_group": null,
+      "distributor": "RCA / Sony",
+      "master_ownership": "artist",
+      "founded": 2022,
+      "notes": "Steve Lacy's production/creative company — Sony distribution",
+      "artists": ["Steve Lacy"]
+    },
+    "Homemade Projects": {
+      "tier": "self_released",
+      "owner": "Noah Kahan",
+      "parent_group": "Republic / UMG",
+      "distributor": "Republic Records",
+      "master_ownership": "artist",
+      "founded": 2019,
+      "notes": "Noah Kahan's own imprint through Republic — retains masters",
+      "artists": ["Noah Kahan"]
+    },
+    "Half Orange Records": {
+      "tier": "indie",
+      "owner": "Zach Bryan",
+      "parent_group": null,
+      "distributor": "Warner Records",
+      "master_ownership": "artist",
+      "founded": 2023,
+      "notes": "Zach Bryan's own label — Warner distribution deal, artist owns masters. Highly publicized indie deal.",
+      "artists": ["Zach Bryan"]
+    },
+    "Mercury Nashville": {
+      "tier": "major",
+      "owner": "UMG Nashville",
+      "parent_group": "UMG",
+      "distributor": "UMG",
+      "master_ownership": "label",
+      "founded": 1945,
+      "notes": "UMG's Nashville country imprint",
+      "artists": ["Ella Langley", "Kacey Musgraves (historically)"]
+    },
+    "Big Loud Records": {
+      "tier": "major_indie",
+      "owner": "Seth England / Craig Wiseman",
+      "parent_group": "Sony Music Nashville",
+      "distributor": "Sony Music Nashville",
+      "master_ownership": "split",
+      "founded": 2015,
+      "notes": "Morgan Wallen's label — Sony Nashville distribution",
+      "artists": ["Morgan Wallen", "Hardy", "Breland", "Lainey Wilson"]
+    },
+    "Columbia Nashville": {
+      "tier": "major",
+      "owner": "Sony Music Nashville",
+      "parent_group": "Sony",
+      "distributor": "Sony",
+      "master_ownership": "label",
+      "founded": 1962,
+      "notes": "Sony's Nashville country imprint",
+      "artists": ["Luke Combs", "Dierks Bentley", "Brad Paisley"]
+    },
+    "Back Blocks Music": {
+      "tier": "major_indie",
+      "owner": "Luke Combs",
+      "parent_group": "Sony",
+      "distributor": "Columbia Nashville",
+      "master_ownership": "artist",
+      "founded": 2017,
+      "notes": "Luke Combs' own imprint through Columbia Nashville",
+      "artists": ["Luke Combs"]
+    },
+    "Schoolboy Records": {
+      "tier": "self_released",
+      "owner": "Post Malone",
+      "parent_group": "Republic / UMG",
+      "distributor": "Republic Records",
+      "master_ownership": "artist",
+      "founded": 2016,
+      "notes": "Post Malone's own imprint through Republic",
+      "artists": ["Post Malone"]
+    },
+    "Cactus Jack Records": {
+      "tier": "major_indie",
+      "owner": "Travis Scott",
+      "parent_group": "Sony",
+      "distributor": "Epic Records",
+      "master_ownership": "artist",
+      "founded": 2017,
+      "notes": "Travis Scott's imprint through Epic/Sony. Scott owns masters.",
+      "artists": ["Travis Scott", "Don Toliver", "Sheck Wes", "Chase B", "Luxury Tax"]
+    },
+    "DistroKid": {
+      "tier": "self_released",
+      "owner": "Philip Kaplan / Spotify (minority stake)",
+      "parent_group": null,
+      "distributor": "self",
+      "master_ownership": "artist",
+      "founded": 2013,
+      "notes": "Largest music distribution platform by volume. Flat annual fee, artist keeps 100% of royalties. Spotify owns minority stake.",
+      "artists": ["varies — distribution service"]
+    },
+    "TuneCore": {
+      "tier": "self_released",
+      "owner": "Believe",
+      "parent_group": "Believe",
+      "distributor": "self",
+      "master_ownership": "artist",
+      "founded": 2005,
+      "notes": "Owned by French indie major Believe. Per-release fee model.",
+      "artists": ["varies — distribution service"]
+    },
+    "HYBE America": {
+      "tier": "major_indie",
+      "owner": "HYBE",
+      "parent_group": "HYBE",
+      "distributor": "UMG / Columbia",
+      "master_ownership": "label",
+      "founded": 2021,
+      "notes": "BTS and K-pop acts US operations. HYBE is publicly traded Korean entertainment conglomerate.",
+      "artists": ["BTS", "KATSEYE", "NewJeans (historically)"]
+    },
+    "Geffen / Interscope": {
+      "tier": "major",
+      "owner": "UMG",
+      "parent_group": "UMG",
+      "distributor": "UMG",
+      "master_ownership": "label",
+      "founded": 1980,
+      "notes": "Core UMG pop/rock imprint",
+      "artists": ["Olivia Rodrigo", "Billie Eilish", "Lana Del Rey", "Arcade Fire"]
+    },
+    "Rose Avenue": {
+      "tier": "major_indie",
+      "owner": "Justin Bieber",
+      "parent_group": "UMG",
+      "distributor": "Island / UMG",
+      "master_ownership": "artist",
+      "founded": 2022,
+      "notes": "Bieber's own imprint post-Def Jam deal renegotiation",
+      "artists": ["Justin Bieber"]
+    }
+  },
+
+  "artist_overrides": {
+    "Taylor Swift": {
+      "label": "Taylor Swift / Republic Records",
+      "tier": "major_indie",
+      "distributor": "Republic / UMG",
+      "master_ownership": "artist",
+      "notes": "Re-recorded albums (Taylor's Version) fully owned by Swift. Original masters owned by Ithaca Holdings (Scooter Braun, sold to Shamrock Capital). New releases on Republic with artist owning masters."
+    },
+    "Beyoncé": {
+      "label": "Parkwood Entertainment",
+      "tier": "major_indie",
+      "distributor": "Columbia / Sony",
+      "master_ownership": "artist",
+      "notes": "Parkwood is Beyoncé's own company — Columbia distribution. Full creative and master ownership."
+    },
+    "Frank Ocean": {
+      "label": "Boys Don't Cry",
+      "tier": "self_released",
+      "distributor": "Independent",
+      "master_ownership": "artist",
+      "notes": "Fully independent since leaving Def Jam. Distributed Blonde independently, owns all masters."
+    },
+    "Chance the Rapper": {
+      "label": "Independent",
+      "tier": "self_released",
+      "distributor": "Apple Music (exclusive), DistroKid",
+      "master_ownership": "artist",
+      "notes": "Pioneer of streaming-only self-released model. Has since signed traditional deals but pioneered independent streaming."
+    },
+    "Sabrina Carpenter": {
+      "label": "Island Records",
+      "tier": "major",
+      "distributor": "UMG",
+      "master_ownership": "label",
+      "notes": "Island Records / UMG. Standard major deal."
+    },
+    "Olivia Rodrigo": {
+      "label": "Geffen Records",
+      "tier": "major",
+      "distributor": "UMG / Interscope",
+      "master_ownership": "label",
+      "notes": "Geffen/Interscope deal. Historically also Happier than Ever LLC for some publishing."
+    },
+    "SZA": {
+      "label": "Top Dawg Entertainment",
+      "tier": "major_indie",
+      "distributor": "RCA / Sony",
+      "master_ownership": "label",
+      "notes": "TDE holds masters, RCA/Sony distribution. SZA's deal structure has been source of public tension."
+    },
+    "Morgan Wallen": {
+      "label": "Big Loud Records",
+      "tier": "major_indie",
+      "distributor": "Sony Music Nashville",
+      "master_ownership": "split",
+      "notes": "Big Loud / Sony Nashville. One of country's highest-grossing artists."
+    },
+    "Drake": {
+      "label": "OVO Sound",
+      "tier": "major_indie",
+      "distributor": "Warner Music Group",
+      "master_ownership": "artist",
+      "notes": "OVO Sound through Warner. Drake owns masters on recent releases."
+    },
+    "Kendrick Lamar": {
+      "label": "pgLang",
+      "tier": "major_indie",
+      "distributor": "UMG",
+      "master_ownership": "artist",
+      "notes": "pgLang services model with UMG. Kendrick owns masters."
+    },
+    "Bad Bunny": {
+      "label": "Rimas Entertainment",
+      "tier": "indie",
+      "distributor": "Independent",
+      "master_ownership": "label",
+      "notes": "Rimas is a true independent — no major deal. Most successful independent Latin operation in history."
+    },
+    "Ella Langley": {
+      "label": "Mercury Nashville",
+      "tier": "major",
+      "distributor": "UMG Nashville",
+      "master_ownership": "label",
+      "notes": "Mercury Nashville / UMG. Standard major Nashville deal."
+    },
+    "Noah Kahan": {
+      "label": "Homemade Projects / Republic",
+      "tier": "major_indie",
+      "distributor": "Republic / UMG",
+      "master_ownership": "artist",
+      "notes": "Own imprint through Republic — owns masters."
+    },
+    "Zach Bryan": {
+      "label": "Half Orange Records",
+      "tier": "indie",
+      "distributor": "Warner Records",
+      "master_ownership": "artist",
+      "notes": "Highly publicized deal where Bryan retained master ownership — landmark for country music independence."
+    },
+    "Luke Combs": {
+      "label": "Back Blocks Music / Columbia Nashville",
+      "tier": "major_indie",
+      "distributor": "Sony Music Nashville",
+      "master_ownership": "artist",
+      "notes": "Own imprint through Columbia Nashville."
+    },
+    "Justin Bieber": {
+      "label": "Rose Avenue / Island Records",
+      "tier": "major_indie",
+      "distributor": "UMG",
+      "master_ownership": "artist",
+      "notes": "Own imprint through Island/UMG post-renegotiation."
+    },
+    "Travis Scott": {
+      "label": "Cactus Jack Records",
+      "tier": "major_indie",
+      "distributor": "Epic / Sony",
+      "master_ownership": "artist",
+      "notes": "Cactus Jack through Epic. Scott owns masters."
+    },
+    "Don Toliver": {
+      "label": "Cactus Jack / Atlantic",
+      "tier": "major_indie",
+      "distributor": "Warner / Atlantic",
+      "master_ownership": "split",
+      "notes": "Cactus Jack sublabel through Atlantic."
+    },
+    "BTS": {
+      "label": "HYBE / Big Hit Music",
+      "tier": "major_indie",
+      "distributor": "UMG / Columbia",
+      "master_ownership": "label",
+      "notes": "HYBE publicly traded Korean entertainment company. US distribution through Columbia/UMG."
+    },
+    "KATSEYE": {
+      "label": "HYBE America / Geffen",
+      "tier": "major_indie",
+      "distributor": "UMG",
+      "master_ownership": "label",
+      "notes": "HYBE America joint venture with Geffen Records."
+    },
+    "Kehlani": {
+      "label": "Atlantic Records",
+      "tier": "major",
+      "distributor": "Warner / Atlantic",
+      "master_ownership": "label",
+      "notes": "Atlantic Records / Warner Music Group."
+    },
+    "Post Malone": {
+      "label": "Schoolboy Records / Republic",
+      "tier": "major_indie",
+      "distributor": "Republic / UMG",
+      "master_ownership": "artist",
+      "notes": "Own imprint through Republic."
+    },
+    "Tyla": {
+      "label": "Epic Records",
+      "tier": "major",
+      "distributor": "Sony",
+      "master_ownership": "label",
+      "notes": "Epic Records / Sony. South African artist signed to major."
+    },
+    "PinkPantheress": {
+      "label": "Parlophone / Warner",
+      "tier": "major",
+      "distributor": "Warner",
+      "master_ownership": "label",
+      "notes": "Parlophone / Warner Music UK."
+    },
+    "Dominic Fike": {
+      "label": "Columbia Records",
+      "tier": "major",
+      "distributor": "Sony",
+      "master_ownership": "label",
+      "notes": "Columbia / Sony standard deal."
+    },
+    "Bruno Mars": {
+      "label": "Aftermath / Atlantic",
+      "tier": "major",
+      "distributor": "Warner / Atlantic",
+      "master_ownership": "label",
+      "notes": "Atlantic Records / Warner. Long-tenured major deal."
+    },
+    "Alex Warren": {
+      "label": "Geffen Records",
+      "tier": "major",
+      "distributor": "UMG",
+      "master_ownership": "label",
+      "notes": "Geffen / UMG."
+    },
+    "Ye": {
+      "label": "GOOD Music",
+      "tier": "major_indie",
+      "distributor": "varies — relationship with UMG severed 2022",
+      "master_ownership": "artist",
+      "notes": "Post-UMG split, Ye distributes independently or through smaller deals. Highly volatile label situation."
+    }
+  }
+}
