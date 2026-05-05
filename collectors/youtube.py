@@ -18,6 +18,11 @@ The Topic channel is the open data layer the industry doesn't talk about.
 """
 
 import os, time, requests, json
+from pathlib import Path
+
+ROOT = Path(__file__).parent.parent
+RAW = ROOT / "data" / "raw"
+RAW.mkdir(parents=True, exist_ok=True)
 from datetime import date
 
 API_BASE = "https://www.googleapis.com/youtube/v3"
