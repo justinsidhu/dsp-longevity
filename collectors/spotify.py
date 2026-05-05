@@ -1,12 +1,27 @@
 """
 Spotify collector — pulls live editorial playlist tracks and artist popularity.
-Playlist IDs resolved at runtime via search — never goes stale.
+Uses hardcoded verified playlist IDs with search fallback.
+To update IDs: open playlist in Spotify, share -> copy link, ID is after /playlist/
 """
 
 import time, requests
 from datetime import date
 from base64 import b64encode
 
+# Verified official Spotify playlist IDs — update if a 404 occurs
+# Format: open.spotify.com/playlist/<ID>
+PLAYLISTS = {
+    "today_top_hits":   "37i9dQZF1DXcBWIGoYBM5M",
+    "rap_caviar":       "37i9dQZF1DX0XUsuxWHRQd",
+    "hot_hits_usa":     "37i9dQZF1DX0kbJZpiYdZl",
+    "new_music_friday": "37i9dQZF1DX4JAvHpjipBk",
+    "viral_50_usa":   "37i9dQZEVXbKuaTI1Z1Afx",
+    "fresh_finds":    "37i9dQZF1DWWjGdmeTyeJ6",
+    "pop_rising":       "37i9dQZF1DWUa8ZRTfalHk",
+    "most_necessary":   "37i9dQZF1DX2RxBh64BHjQ",
+}
+
+# Search fallback terms if a hardcoded ID 404s
 PLAYLIST_SEARCHES = {
     "today_top_hits":   "Today's Top Hits",
     "rap_caviar":       "RapCaviar",
@@ -50,47 +65,42 @@ class SpotifyCollector:
         r.raise_for_status()
         return r.json()
 
-    def resolve_playlist_id(self, name, query):
+    def search_playlist(self, name, query):
+        """Search fallback — only used if hardcoded ID 404s."""
         try:
-            data = self.get("/search", {
-                "q": query,
-                "type": "playlist",
-                "limit": 10,
-                "market": "US",
-            })
-            items = data.get("playlists", {}).get("items", [])
-            # Filter out None entries — Spotify API can return nulls in the list
-            playlists = [p for p in items if p is not None]
-
-            if not playlists:
-                print(f"    No results for: {query}")
-                return None
-
-            # Prefer official Spotify-owned playlists
-            for pl in playlists:
-                owner_id = pl.get("owner", {}).get("id", "")
-                if owner_id == "spotify":
-                    print(f"    Resolved '{name}' -> {pl['name']} ({pl['id']})")
+            data = self.get("/search", {"q": query, "type": "playlist", "limit": 20, "market": "US"})
+            items = [p for p in data.get("playlists", {}).get("items", []) if p]
+            # Strictly filter to spotify-owned only
+            for pl in items:
+                if pl.get("owner", {}).get("id") == "spotify":
+                    print(f"    Search fallback resolved '{name}' -> {pl['name']} ({pl['id']})")
                     return pl["id"]
-
-            # Fallback to first non-null result
-            first = playlists[0]
-            print(f"    Resolved '{name}' -> {first['name']} ({first['id']})")
-            return first["id"]
-
+            print(f"    Search fallback found no official Spotify playlist for: {query}")
+            return None
         except Exception as e:
-            print(f"    Error resolving '{name}': {e}")
+            print(f"    Search fallback error for '{name}': {e}")
             return None
 
-    def resolve_all_playlists(self):
-        resolved = {}
-        for name, query in PLAYLIST_SEARCHES.items():
-            pid = self.resolve_playlist_id(name, query)
-            if pid:
-                resolved[name] = pid
-            time.sleep(0.3)
-        print(f"  Resolved {len(resolved)}/{len(PLAYLIST_SEARCHES)} playlists\n")
-        return resolved
+    def verify_or_search(self, name, playlist_id):
+        """Try hardcoded ID first, fall back to search if 404."""
+        try:
+            r = requests.get(
+                f"{self.BASE}/playlists/{playlist_id}",
+                headers=self._h(),
+                params={"fields": "id,name,owner"},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                print(f"    Verified '{name}' -> {data['name']} ({playlist_id})")
+                return playlist_id
+            elif r.status_code == 404:
+                print(f"    ID stale for '{name}', searching...")
+                return self.search_playlist(name, PLAYLIST_SEARCHES[name])
+            else:
+                r.raise_for_status()
+        except Exception as e:
+            print(f"    Error verifying '{name}': {e}")
+            return None
 
     def playlist_tracks(self, playlist_id):
         tracks, url = [], f"{self.BASE}/playlists/{playlist_id}/tracks"
@@ -121,17 +131,23 @@ class SpotifyCollector:
     def collect_playlists(self):
         today = date.today().isoformat()
 
-        print("  Resolving playlist IDs via search...")
-        playlists = self.resolve_all_playlists()
+        print("  Verifying playlist IDs...")
+        resolved = {}
+        for name, pid in PLAYLISTS.items():
+            verified = self.verify_or_search(name, pid)
+            if verified:
+                resolved[name] = verified
+            time.sleep(0.2)
+        print(f"  Resolved {len(resolved)}/{len(PLAYLISTS)} playlists\n")
 
-        if not playlists:
+        if not resolved:
             print("  ERROR: Could not resolve any playlists")
             return [], [], []
 
         track_records, artist_ids_seen = [], set()
         playlist_track_sets = {}
 
-        for playlist_name, playlist_id in playlists.items():
+        for playlist_name, playlist_id in resolved.items():
             print(f"  Pulling playlist: {playlist_name}")
             try:
                 tracks = self.playlist_tracks(playlist_id)

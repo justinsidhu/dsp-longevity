@@ -61,7 +61,7 @@ def collect_wikipedia():
                     "wiki_title": wiki_title,
                     "pageviews": item.get("views", 0),
                 })
-            time.sleep(0.3)
+            time.sleep(1.5)
         except Exception as e:
             print(f"  Wiki error for {artist_name}: {e}")
 

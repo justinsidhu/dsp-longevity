@@ -1,14 +1,12 @@
 """
 Polymarket collector — pulls music prediction market data.
 No API key needed — fully public CLOB API.
-Tracks implied probability, volume, and outcomes for music markets.
 """
 
-import time, requests
+import json, time, requests
 from datetime import date
 
-BASE = "https://clob.polymarket.com"
-GAMMA_BASE = "https://gamma-api.polymarket.com"  # metadata API
+GAMMA_BASE = "https://gamma-api.polymarket.com"
 
 MUSIC_KEYWORDS = [
     "drake", "iceman", "spotify", "billboard", "grammy", "streams",
@@ -22,11 +20,28 @@ MUSIC_KEYWORDS = [
 def is_music_event(event):
     title = (event.get("title") or "").lower()
     slug = (event.get("slug") or "").lower()
-    tags = [t.get("label", "").lower() for t in event.get("tags") or []]
+    tags = [t.get("label", "").lower() for t in (event.get("tags") or [])]
     combined = f"{title} {slug} {' '.join(tags)}"
     if "music" in tags or "entertainment" in tags:
         return True
     return any(kw in combined for kw in MUSIC_KEYWORDS)
+
+
+def parse_prices(raw):
+    """
+    Polymarket outcomePrices can be a list or a JSON-encoded string like '["0.35","0.65"]'.
+    Handle both.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except Exception:
+            return []
+    return []
 
 
 def collect_polymarket():
@@ -34,7 +49,6 @@ def collect_polymarket():
     records = []
 
     try:
-        # Gamma API has better event metadata than CLOB directly
         offset = 0
         limit = 100
         music_events = []
@@ -42,24 +56,16 @@ def collect_polymarket():
         while True:
             r = requests.get(
                 f"{GAMMA_BASE}/events",
-                params={
-                    "limit": limit,
-                    "offset": offset,
-                    "active": "true",
-                    "closed": "false",
-                },
+                params={"limit": limit, "offset": offset, "active": "true", "closed": "false"},
                 timeout=15,
             )
             r.raise_for_status()
             events = r.json()
-
             if not events:
                 break
 
             music_events.extend([e for e in events if is_music_event(e)])
             offset += limit
-
-            # Stop after 500 events — music markets are a small slice
             if offset >= 500:
                 break
             time.sleep(0.3)
@@ -68,20 +74,18 @@ def collect_polymarket():
 
         for event in music_events:
             markets = event.get("markets") or []
-
             for market in markets:
-                # Get current prices from outcomes
                 outcomes = market.get("outcomes") or []
-                outcome_prices = market.get("outcomePrices") or []
+                raw_prices = parse_prices(market.get("outcomePrices"))
 
-                # Parse outcome probabilities
                 outcome_data = []
                 for i, outcome in enumerate(outcomes):
-                    price = float(outcome_prices[i]) if i < len(outcome_prices) else None
-                    outcome_data.append({
-                        "outcome": outcome,
-                        "probability": round(price * 100, 1) if price else None,
-                    })
+                    try:
+                        price = float(raw_prices[i]) if i < len(raw_prices) else None
+                        prob = round(price * 100, 1) if price is not None else None
+                    except (ValueError, TypeError):
+                        prob = None
+                    outcome_data.append({"outcome": outcome, "probability": prob})
 
                 record = {
                     "snapshot_date": today,
@@ -98,14 +102,11 @@ def collect_polymarket():
                     "end_date": market.get("endDate"),
                     "resolved": market.get("resolved", False),
                     "resolution": market.get("resolution"),
-                    # Top outcome by probability for quick scanning
                     "leading_outcome": max(
-                        outcome_data,
-                        key=lambda x: x["probability"] or 0
+                        outcome_data, key=lambda x: x["probability"] or 0
                     ) if outcome_data else None,
                 }
                 records.append(record)
-
             time.sleep(0.2)
 
     except Exception as e:
