@@ -76,6 +76,7 @@ def msg_header(today, stats):
         f"*Signals collected today*\n"
         f"🎵 Spotify artists: {spotify_artists}{release_flag}\n"
         f"📊 Billboard Hot 100: {stats.get('billboard', 0)} entries\n"
+        f"💿 Billboard 200: {stats.get('billboard_200', 0)} albums\n"
         f"📖 Wikipedia pageviews: {stats.get('wikipedia', 0)} artists\n"
         f"🎶 Shazam chart: {stats.get('shazam_chart', 0)} tracks\n"
         f"🌍 Last.fm listeners: {stats.get('lastfm', 0)} artists\n"
@@ -353,10 +354,13 @@ def main():
     stats = {}
 
     # ── BILLBOARD (first — Spotify uses this) ────────────────────────────────
-    print("Billboard: collecting Hot 100...")
+    print("Billboard: collecting Hot 100 + Billboard 200...")
     bb_records = collect_billboard()
     append_jsonl(RAW / "billboard.jsonl", bb_records)
-    stats["billboard"] = len(bb_records)
+    hot100_count = len([r for r in bb_records if r.get("chart") == "hot-100"])
+    b200_count = len([r for r in bb_records if r.get("chart") == "billboard-200"])
+    stats["billboard"] = hot100_count
+    stats["billboard_200"] = b200_count
     print()
 
     # ── SPOTIFY ───────────────────────────────────────────────────────────────

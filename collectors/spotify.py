@@ -223,7 +223,7 @@ class SpotifyCollector:
     def collect_playlists(self):
         today = date.today().isoformat()
 
-        # Get artist names from Billboard data
+        # Get artist names from BOTH Hot 100 and Billboard 200
         billboard_file = RAW / "billboard.jsonl"
         artist_names = set()
         if billboard_file.exists():
@@ -231,6 +231,7 @@ class SpotifyCollector:
                 for line in f:
                     try:
                         r = json.loads(line)
+                        # Hot 100: artist field
                         artist = r.get("artist", "")
                         if artist:
                             primary = re.split(r'\s+feat\.?\s+|\s+ft\.?\s+|\s+&\s+', artist, flags=re.IGNORECASE)[0].strip()
@@ -241,7 +242,7 @@ class SpotifyCollector:
         if not artist_names:
             artist_names = set(FALLBACK_ARTISTS)
 
-        print(f"  Spotify: tracking {len(artist_names)} artists from Billboard")
+        print(f"  Spotify: tracking {len(artist_names)} artists from Billboard Hot 100 + 200")
 
         artist_records, release_records, seen_ids = [], [], set()
 
@@ -284,5 +285,5 @@ class SpotifyCollector:
                 print(f"    Error: {name}: {e}")
 
         artist_records.sort(key=lambda x: abs(x.get("velocity_score", 0)), reverse=True)
-        print(f"  Spotify: {len(artist_records)} artists, {len(release_records)} new releases")
+
         return artist_records, [], release_records

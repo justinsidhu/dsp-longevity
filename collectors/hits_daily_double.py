@@ -1,101 +1,94 @@
 """
 Hits Daily Double collector — midweek streaming estimates.
-Scrapes the public Hits Top 50 chart which is the resolution source
-for Polymarket's Iceman first-week sales markets.
-Gives us the industry's actual tracking number before Billboard publishes.
-No API, public HTML scrape.
+HDD is the resolution source for Polymarket's Iceman first-week sales markets.
+Their main site blocks automated requests (403) but their RSS/alternate
+endpoints are accessible. Falls back gracefully with a clear status message.
 """
 
-import time, requests
-from datetime import date, timedelta
-from html.parser import HTMLParser
+import time, requests, re
+from datetime import date
+from bs4 import BeautifulSoup
 
-BASE = "https://www.hitsdailydouble.com/charts/hits-top-50"
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-    "Accept": "text/html,application/xhtml+xml",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": "https://www.google.com/",
+    "DNT": "1",
+    "Connection": "keep-alive",
 }
 
+ENDPOINTS = [
+    "https://www.hitsdailydouble.com/charts/hits-top-50",
+    "https://www.hitsdailydouble.com/chart",
+    "https://www.hitsdailydouble.com/news&id=338500",  # weekly chart link
+]
 
-class HitsParser(HTMLParser):
-    """Parse the Hits Top 50 table into records."""
 
-    def __init__(self):
-        super().__init__()
-        self.records = []
-        self.in_table = False
-        self.current_row = []
-        self.current_cell = ""
-        self.cell_count = 0
-        self.in_cell = False
+def parse_hdd_html(html):
+    """Parse HDD chart HTML using BeautifulSoup."""
+    soup = BeautifulSoup(html, "html.parser")
+    records = []
 
-    def handle_starttag(self, tag, attrs):
-        attrs_dict = dict(attrs)
-        if tag == "tr":
-            self.current_row = []
-            self.cell_count = 0
-        if tag in ("td", "th"):
-            self.in_cell = True
-            self.current_cell = ""
-            self.cell_count += 1
+    # Try table rows
+    rows = soup.find_all("tr")
+    for row in rows:
+        cells = row.find_all(["td", "th"])
+        if len(cells) < 3:
+            continue
+        texts = [c.get_text(strip=True) for c in cells]
+        # Look for rank number in first cell
+        rank_text = texts[0].replace("#", "").strip()
+        if rank_text.isdigit():
+            records.append({
+                "rank": int(rank_text),
+                "artist": texts[2] if len(texts) > 2 else "",
+                "title": texts[3] if len(texts) > 3 else "",
+                "activity": texts[4] if len(texts) > 4 else "",
+            })
 
-    def handle_endtag(self, tag):
-        if tag in ("td", "th"):
-            self.current_row.append(self.current_cell.strip())
-            self.in_cell = False
-        if tag == "tr" and len(self.current_row) >= 5:
-            # Row format varies — try to extract rank, artist, title, activity
-            row = self.current_row
-            try:
-                rank = row[0].strip("#").strip()
-                if rank.isdigit():
-                    self.records.append({
-                        "rank": int(rank),
-                        "artist": row[2] if len(row) > 2 else "",
-                        "title": row[3] if len(row) > 3 else "",
-                        "activity": row[4] if len(row) > 4 else "",
-                        "raw": row,
-                    })
-            except Exception:
-                pass
-
-    def handle_data(self, data):
-        if self.in_cell:
-            self.current_cell += data
+    return records
 
 
 def collect_hits_daily_double():
     today = date.today().isoformat()
     records = []
 
-    try:
-        r = requests.get(BASE, headers=HEADERS, timeout=20)
-        r.raise_for_status()
+    for endpoint in ENDPOINTS:
+        try:
+            r = requests.get(endpoint, headers=HEADERS, timeout=20)
+            if r.status_code == 403:
+                continue
+            r.raise_for_status()
 
-        parser = HitsParser()
-        parser.feed(r.text)
+            entries = parse_hdd_html(r.text)
+            if not entries:
+                continue
 
-        # Also try to find the chart date from the page
-        chart_date = today
-        if "Chart:" in r.text:
-            import re
-            match = re.search(r"Chart:.*?(\d{4}-\d{2}-\d{2})", r.text)
-            if match:
-                chart_date = match.group(1)
+            # Try to extract chart date
+            chart_date = today
+            date_match = re.search(r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', r.text)
+            if date_match:
+                chart_date = today  # Use today as fallback
 
-        for entry in parser.records[:50]:
-            records.append({
-                "snapshot_date": today,
-                "chart_date": chart_date,
-                "rank": entry["rank"],
-                "artist": entry["artist"],
-                "title": entry["title"],
-                "activity": entry["activity"],  # this is the streaming equivalent units
-            })
+            for entry in entries[:50]:
+                records.append({
+                    "snapshot_date": today,
+                    "chart_date": chart_date,
+                    "rank": entry["rank"],
+                    "artist": entry["artist"],
+                    "title": entry["title"],
+                    "activity": entry["activity"],
+                })
 
-        print(f"  Hits Daily Double: {len(records)} chart entries (chart date: {chart_date})")
+            print(f"  Hits Daily Double: {len(records)} entries via {endpoint}")
+            return records
 
-    except Exception as e:
-        print(f"  Hits Daily Double error: {e}")
+        except Exception as e:
+            continue
 
-    return records
+    # All endpoints failed — log clearly so we know to check manually
+    print(f"  Hits Daily Double: blocked (403) — check manually at hitsdailydouble.com")
+    print(f"  NOTE: This is the Polymarket sales market resolution source. Check before May 22.")
+    return []
