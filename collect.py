@@ -335,7 +335,7 @@ def msg_shazam_billboard(today):
             lines.append("")
 
         # Billboard 200 longevity — albums with 50+ weeks
-        b200_long = [r for r in b200 if r.get("weeks_on_chart", 0) >= 50]
+        b200_long = [r for r in b200 if (r.get("weeks_on_chart") or 0) >= 50]
         b200_long.sort(key=lambda x: x.get("weeks_on_chart", 0), reverse=True)
         if b200_long:
             lines.append("*💿 Billboard 200 catalog veterans (50+ weeks)*")

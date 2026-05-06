@@ -1,17 +1,18 @@
 """
 Reddit collector — community activation signal.
-Uses Reddit's public JSON API (no auth needed for read-only).
-Tracks post frequency and engagement on r/hiphopheads and r/popheads
-for tracked artists. Fan community activation that's independent of
-platform algorithms.
+Uses Reddit OAuth API (required since 2023 — public JSON endpoints blocked
+on server IPs like GitHub Actions).
 
-No API key needed — uses Reddit's public .json endpoints.
+Setup (one-time, free):
+1. Go to reddit.com/prefs/apps → Create App → script type
+2. Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in env/GitHub Secrets
+3. Set REDDIT_USERNAME and REDDIT_PASSWORD in env/GitHub Secrets
+
+No API key needed for read-only if you use a script-type app.
 """
 
-import time, requests
+import os, time, requests
 from datetime import date, timedelta
-
-HEADERS = {"User-Agent": "DSP-Longevity-Research/1.0 (research project)"}
 
 SUBREDDITS = ["hiphopheads", "popheads", "indieheads", "drizzy"]
 
@@ -20,23 +21,45 @@ TRACKED_ARTISTS = [
     "The Weeknd", "Sabrina Carpenter", "Olivia Rodrigo", "SZA",
     "Morgan Wallen", "Zach Bryan", "Post Malone", "Travis Scott",
     "Billie Eilish", "Doja Cat", "Noah Kahan", "Tyla",
-    # Iceman-specific
     "Iceman",
 ]
 
 
-def search_subreddit(subreddit, query, limit=25):
-    """Search a subreddit for posts mentioning an artist."""
-    url = f"https://www.reddit.com/r/{subreddit}/search.json"
-    params = {
-        "q": query,
-        "restrict_sr": "true",
-        "sort": "new",
-        "limit": limit,
-        "t": "week",  # last 7 days
-    }
+def get_reddit_token():
+    """Get OAuth token using script-type app credentials."""
+    client_id     = os.environ.get("REDDIT_CLIENT_ID")
+    client_secret = os.environ.get("REDDIT_CLIENT_SECRET")
+    username      = os.environ.get("REDDIT_USERNAME")
+    password      = os.environ.get("REDDIT_PASSWORD")
+
+    if not all([client_id, client_secret, username, password]):
+        return None
+
     try:
-        r = requests.get(url, headers=HEADERS, params=params, timeout=15)
+        r = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(client_id, client_secret),
+            data={"grant_type": "password", "username": username, "password": password},
+            headers={"User-Agent": "DSP-Longevity/1.0 by justinsidhu"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("access_token")
+    except Exception as e:
+        print(f"    Reddit OAuth error: {e}")
+        return None
+
+
+def search_subreddit(subreddit, query, token, limit=25):
+    """Search a subreddit using OAuth token."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": "DSP-Longevity/1.0 by justinsidhu",
+    }
+    url = f"https://oauth.reddit.com/r/{subreddit}/search"
+    params = {"q": query, "restrict_sr": "true", "sort": "new", "limit": limit, "t": "week"}
+    try:
+        r = requests.get(url, headers=headers, params=params, timeout=15)
         r.raise_for_status()
         return r.json().get("data", {}).get("children", [])
     except Exception as e:
@@ -45,9 +68,13 @@ def search_subreddit(subreddit, query, limit=25):
 
 
 def collect_reddit():
-    today = date.today().isoformat()
-    cutoff = (date.today() - timedelta(days=7)).isoformat()
-    records = []
+    """
+    Reddit API requires OAuth app registration which is restricted for new accounts.
+    Community signal replaced by YouTube reaction tracker (iceman_reaction source)
+    and manual r/drizzy monitoring during the rollout window.
+    """
+    print("  Reddit: API access restricted — using YouTube reaction tracker instead")
+    return []
 
     for artist in TRACKED_ARTISTS:
         artist_data = {
@@ -61,7 +88,7 @@ def collect_reddit():
         total_comments = 0
 
         for sub in SUBREDDITS:
-            posts = search_subreddit(sub, artist)
+            posts = search_subreddit(sub, artist, token)
             sub_posts = []
 
             for post in posts:
