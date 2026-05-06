@@ -61,10 +61,11 @@ def compute_divergence_scores():
     for r in billboard_records:
         if r["snapshot_date"] == today:
             artist = r.get("artist", "")
-            pos = r.get("position", 101)
-            weeks = r.get("weeks_on_chart", 0)
+            pos = r.get("position") or 101  # B200 catalog records have None position
+            weeks = r.get("weeks_on_chart") or 0
             # Multiple entries possible (featured artists) — take best position
-            if artist not in billboard_today or pos < billboard_today[artist]["position"]:
+            existing_pos = billboard_today.get(artist, {}).get("position", 999)
+            if artist not in billboard_today or pos < existing_pos:
                 billboard_today[artist] = {
                     "position": pos,
                     "weeks_on_chart": weeks,

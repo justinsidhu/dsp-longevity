@@ -13,7 +13,7 @@ from datetime import date, timedelta
 
 HEADERS = {"User-Agent": "DSP-Longevity-Research/1.0 (research project)"}
 
-SUBREDDITS = ["hiphopheads", "popheads", "indieheads"]
+SUBREDDITS = ["hiphopheads", "popheads", "indieheads", "drizzy"]
 
 TRACKED_ARTISTS = [
     "Drake", "Kendrick Lamar", "Taylor Swift", "Bad Bunny",

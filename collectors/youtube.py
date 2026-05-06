@@ -52,6 +52,94 @@ TRACK_VIDEOS = {
     "i had some help":      "R3-BIl2TQUQ",
 }
 
+# Drake rollout channels to monitor for new content
+DRAKE_ROLLOUT_CHANNELS = {
+    "Drake Official":   "UCByOQJjav0CUDwxCk-jVNRQ",  # main channel
+    "plottttwistttttt": "UCJq_UgfAyO6W2HKCbrMcqLQ",  # OVO rollout/content channel
+}
+
+# Reaction/commentary channels to monitor for Iceman coverage
+REACTION_CHANNEL_QUERIES = [
+    "DJ Akademiks Iceman Drake",
+    "Iceman Drake reaction 2026",
+    "Drake Iceman review",
+    "Drake May 14 livestream",
+    "Drake Episode 4 livestream",
+]
+
+
+def get_channel_recent_videos(channel_id, api_key, max_results=10):
+    """Get recent uploads from a channel — checks for new content daily."""
+    try:
+        channel_data = yt_get("channels", {
+            "part": "contentDetails,statistics,snippet",
+            "id": channel_id,
+        }, api_key)
+        items = channel_data.get("items", [])
+        if not items:
+            return [], {}
+        uploads_playlist = (items[0].get("contentDetails", {})
+                                    .get("relatedPlaylists", {})
+                                    .get("uploads", ""))
+        channel_stats = items[0].get("statistics", {})
+        channel_name = items[0].get("snippet", {}).get("title", "")
+
+        if not uploads_playlist:
+            return [], channel_stats
+
+        playlist_data = yt_get("playlistItems", {
+            "part": "snippet",
+            "playlistId": uploads_playlist,
+            "maxResults": max_results,
+        }, api_key)
+
+        videos = []
+        for item in playlist_data.get("items", []):
+            vid_id = item["snippet"]["resourceId"].get("videoId")
+            if vid_id:
+                videos.append({
+                    "video_id": vid_id,
+                    "title": item["snippet"].get("title", ""),
+                    "published_at": item["snippet"].get("publishedAt", ""),
+                    "channel_name": channel_name,
+                })
+        return videos, channel_stats
+    except Exception as e:
+        print(f"    Channel recent videos error {channel_id}: {e}")
+        return [], {}
+
+
+def search_iceman_reaction_content(api_key):
+    """Search YouTube for Iceman/Drake reaction and commentary content."""
+    if not api_key:
+        return []
+    results = []
+    seen_ids = set()
+    for query in REACTION_CHANNEL_QUERIES[:2]:  # limit to 2 searches to save quota
+        try:
+            data = yt_get("search", {
+                "part": "snippet",
+                "q": query,
+                "type": "video",
+                "order": "date",
+                "maxResults": 5,
+                "publishedAfter": "2026-05-01T00:00:00Z",
+            }, api_key)
+            for item in data.get("items", []):
+                vid_id = item.get("id", {}).get("videoId")
+                if vid_id and vid_id not in seen_ids:
+                    seen_ids.add(vid_id)
+                    results.append({
+                        "video_id": vid_id,
+                        "title": item["snippet"].get("title", ""),
+                        "channel_title": item["snippet"].get("channelTitle", ""),
+                        "published_at": item["snippet"].get("publishedAt", ""),
+                    })
+            time.sleep(0.5)
+        except Exception as e:
+            print(f"    Iceman reaction search error ({query}): {e}")
+    return results
+
 HEATMAP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -213,6 +301,55 @@ def collect_youtube_stats(api_key):
             time.sleep(0.3)
         except Exception as e:
             print(f"    Topic channel error for {artist_name}: {e}")
+
+    # Drake rollout channel monitoring — runs daily May 5–22
+    from datetime import date as _date
+    window_start = _date(2026, 5, 5)
+    window_end   = _date(2026, 5, 22)
+    today_date   = _date.today()
+
+    if window_start <= today_date <= window_end:
+        print("  YouTube: Drake rollout window active — monitoring channels...")
+
+        # Check Drake Official + plottttwistttttt for new uploads
+        for channel_name, channel_id in DRAKE_ROLLOUT_CHANNELS.items():
+            try:
+                videos, ch_stats = get_channel_recent_videos(channel_id, api_key, max_results=10)
+                if not videos:
+                    continue
+                video_ids = [v["video_id"] for v in videos]
+                video_stats = get_video_stats(video_ids, api_key)
+                for v in videos:
+                    vid_id = v["video_id"]
+                    stats_data = video_stats.get(vid_id, {})
+                    records.append({
+                        "snapshot_date": today,
+                        "source": "drake_rollout_channel",
+                        "channel_name": channel_name,
+                        "channel_id": channel_id,
+                        **v,
+                        **stats_data,
+                    })
+                print(f"    {channel_name}: {len(videos)} recent videos tracked")
+                time.sleep(0.5)
+            except Exception as e:
+                print(f"    Error monitoring {channel_name}: {e}")
+
+        # Search for Iceman reaction/commentary content (Akademiks etc)
+        reactions = search_iceman_reaction_content(api_key)
+        if reactions:
+            # Get stats for reaction videos
+            reaction_ids = [r["video_id"] for r in reactions]
+            reaction_stats = get_video_stats(reaction_ids, api_key)
+            for r in reactions:
+                stats_data = reaction_stats.get(r["video_id"], {})
+                records.append({
+                    "snapshot_date": today,
+                    "source": "iceman_reaction",
+                    **r,
+                    **stats_data,
+                })
+            print(f"    Found {len(reactions)} Iceman reaction/commentary videos")
 
     print(f"  YouTube stats: {len(records)} records collected")
     return records

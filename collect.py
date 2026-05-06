@@ -301,11 +301,14 @@ def msg_shazam_billboard(today):
 
     lines = ["📊 *Charts & Discovery*", "━━━━━━━━━━━━━━━━━━━━━━", ""]
 
-    # Billboard biggest movers
+    # Billboard biggest movers — Hot 100 only (has 'song' field)
     if today_bb:
-        new_entries = [r for r in today_bb if r.get("is_new_entry") and r.get("position", 101) <= 40]
-        big_risers = [r for r in today_bb if r.get("position_change", 0) >= 10]
-        long_tenured = [r for r in today_bb if r.get("weeks_on_chart", 0) >= 20 and r.get("position", 101) <= 30]
+        hot100 = [r for r in today_bb if r.get("chart", "hot-100") == "hot-100"]
+        b200   = [r for r in today_bb if r.get("chart") == "billboard-200"]
+
+        new_entries  = [r for r in hot100 if r.get("is_new_entry") and r.get("position", 101) <= 40]
+        big_risers   = [r for r in hot100 if r.get("position_change", 0) >= 10]
+        long_tenured = [r for r in hot100 if r.get("weeks_on_chart", 0) >= 20 and r.get("position", 101) <= 30]
 
         big_risers.sort(key=lambda x: x.get("position_change", 0), reverse=True)
         long_tenured.sort(key=lambda x: x.get("weeks_on_chart", 0), reverse=True)
@@ -313,19 +316,31 @@ def msg_shazam_billboard(today):
         if new_entries:
             lines.append("*🆕 New Hot 100 entries (top 40)*")
             for r in new_entries[:3]:
-                lines.append(f"#{r['position']} {r['song']} — {r['artist']}")
+                title = r.get("song") or r.get("album") or "—"
+                lines.append(f"#{r['position']} {title} — {r['artist']}")
             lines.append("")
 
         if big_risers:
             lines.append("*⬆️ Biggest risers*")
             for r in big_risers[:3]:
-                lines.append(f"+{r['position_change']} → #{r['position']} {r['song']} — {r['artist']}")
+                title = r.get("song") or r.get("album") or "—"
+                lines.append(f"+{r['position_change']} → #{r['position']} {title} — {r['artist']}")
             lines.append("")
 
         if long_tenured:
             lines.append("*🏆 Longevity leaders (20+ weeks, top 30)*")
             for r in long_tenured[:3]:
-                lines.append(f"#{r['position']} {r['song']} — {r.get('weeks_on_chart')}wks")
+                title = r.get("song") or r.get("album") or "—"
+                lines.append(f"#{r['position']} {title} — {r.get('weeks_on_chart')}wks")
+            lines.append("")
+
+        # Billboard 200 longevity — albums with 50+ weeks
+        b200_long = [r for r in b200 if r.get("weeks_on_chart", 0) >= 50]
+        b200_long.sort(key=lambda x: x.get("weeks_on_chart", 0), reverse=True)
+        if b200_long:
+            lines.append("*💿 Billboard 200 catalog veterans (50+ weeks)*")
+            for r in b200_long[:3]:
+                lines.append(f"#{r.get('position','—')} {r.get('album','—')} — {r['artist']} · {r.get('weeks_on_chart')}wks")
             lines.append("")
 
     # Shazam top 10 with context
