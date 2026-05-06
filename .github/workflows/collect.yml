@@ -1,26 +1,20 @@
 name: Daily DSP Longevity Collection
-
 on:
   schedule:
-    - cron: "0 13 * * *"  # 9 AM ET daily
+    - cron: "0 13 * * *"
   workflow_dispatch:
-
 jobs:
   collect:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
-        run: pip install requests pytrends shazamio
-
+        run: pip install requests pytrends shazamio beautifulsoup4
       - name: Run collector
         env:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
@@ -28,9 +22,10 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-	  KALSHI_API_KEY: b79040f2-f662-4bde-a363-7e536acb4764
+          KALSHI_API_KEY: ${{ secrets.KALSHI_API_KEY }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          GENIUS_API_TOKEN: ${{ secrets.GENIUS_API_TOKEN }}
         run: python collect.py
-
       - name: Commit new data
         run: |
           git config user.name "github-actions[bot]"
